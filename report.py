@@ -1,6 +1,6 @@
 """
 VACKER daglig försäljningsrapport
-──────────────────────────────────
+─────────────────────────────────
 Hämtar dagens försäljning per butik från Hicore (skriptet är tänkt att köras
 sent på kvällen när butikerna stängt), jämför mot samma veckodag förra året,
 bygger en polerad PNG-rapport och postar i Slack.
@@ -72,7 +72,7 @@ def parse_target_date() -> dt.date:
     return today()
 
 
-# ─── Hicore API ────────────────────────────────────────────────────────────
+# ─── Hicore API ───────────────────────────────────────────────────────────
 def fetch_dashboard(start: str, end: str, dtf: int) -> list[dict]:
     url = f"{HICORE_BASE}/{HICORE_STORE_ID}/Report/DashBoard"
     params = {
@@ -152,7 +152,7 @@ def class_for(value: float) -> str:
     return "zero"
 
 
-# ─── skämtgenerering ────────────────────────────────────────────────────
+# ─── skämtgenerering ──────────────────────────────────────────────────────
 FALLBACK_JOKES = [
     "«Varje krona räknas — och vi räknar bra!»",
     "«Hår av guld, siffror av platina.»",
@@ -197,29 +197,22 @@ def render_html(ctx: dict) -> str:
     return Template(TEMPLATE_PATH.read_text(encoding="utf-8")).render(**ctx)
 
 def render_png(html: str, output_path: Path) -> None:
-    """HTML → PNG via Playwright (Node)."""
+    """HTML → PNG via Playwright (Python)."""
+    from playwright.sync_api import sync_playwright
     html_file = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8")
     html_file.write(html); html_file.close()
-    js_script = f"""
-const {{ chromium }} = require('playwright');
-(async () => {{
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({{ deviceScaleFactor: 2, viewport: {{ width: 960, height: 1400 }} }});
-  const page = await ctx.newPage();
-  await page.goto('file://{html_file.name}');
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(800);
-  await page.screenshot({{ path: '{output_path}', fullPage: true }});
-  await browser.close();
-}})();
-"""
-    js_file = tempfile.NamedTemporaryFile(suffix=".js", delete=False, mode="w")
-    js_file.write(js_script); js_file.close()
-    res = subprocess.run(["node", js_file.name], capture_output=True, text=True)
-    Path(html_file.name).unlink(missing_ok=True)
-    Path(js_file.name).unlink(missing_ok=True)
-    if res.returncode != 0:
-        raise RuntimeError(f"Playwright misslyckades:\n{res.stderr}")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            ctx = browser.new_context(device_scale_factor=2, viewport={"width": 960, "height": 1400})
+            page = ctx.new_page()
+            page.goto(f"file://{html_file.name}")
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(800)
+            page.screenshot(path=str(output_path), full_page=True)
+            browser.close()
+    finally:
+        Path(html_file.name).unlink(missing_ok=True)
 
 
 # ─── Slack ────────────────────────────────────────────────────────────────
@@ -233,7 +226,7 @@ def post_to_slack(png_path: Path, summary: str) -> None:
     )
 
 
-# ─── main ─────────────────────────────────────────────────────────────
+# ─── main ─────────────────────────────────────────────────────────────────
 def main():
     target = parse_target_date()
     prev   = same_weekday_prev_year(target)
