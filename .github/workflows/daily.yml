@@ -1,0 +1,92 @@
+name: Daglig VACKER-rapport
+
+on:
+  schedule:
+    # Två cron-rader så vi täcker både sommar- och vintertid.
+    # Stockholm är UTC+2 på sommaren (CEST) och UTC+1 på vintern (CET).
+    #   18:30 UTC = 20:30 CEST (sommar)  /  19:30 CET (vinter)
+    #   19:30 UTC = 21:30 CEST (sommar)  /  20:30 CET (vinter)
+    # "gate"-jobbet nedan släpper bara igenom körningen när Stockholm-tiden
+    # faktiskt är 20-något — så vi får exakt 20:30 lokal tid året runt.
+    - cron: '30 18 * * *'   # träffar 20:30 lokal tid på sommaren
+    - cron: '30 19 * * *'   # träffar 20:30 lokal tid på vintern
+  workflow_dispatch:
+    inputs:
+      datum:
+        description: 'Datum att rapportera för (YYYY-MM-DD). Tomt = idag.'
+        required: false
+        default: ''
+
+jobs:
+  # ─── 1. Tidsvakt: släpp bara igenom om klockan är 20:xx i Stockholm ──
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manuell körning — släpper alltid igenom."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          HOUR=$(TZ='Europe/Stockholm' date +%H)
+          echo "Stockholm-tid just nu: ${HOUR}-tiden"
+          if [ "$HOUR" = "20" ]; then
+            echo "Det är 20-tiden i Stockholm — kör rapporten."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Inte 20-tiden lokalt — skippar denna körning (DST-skydd)."
+            echo "proceed=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ─── 2. Själva rapporten ─────────────────────────────────────────────
+  rapport:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Hämta kod
+        uses: actions/checkout@v4
+
+      - name: Sätt upp Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Sätt upp Node (för Playwright)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Installera Python-paket
+        run: pip install -r requirements.txt
+
+      - name: Installera Playwright-webbläsare
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Kör rapport
+        env:
+          HICORE_STORE_ID:   ${{ secrets.HICORE_STORE_ID }}
+          HICORE_API_KEY:    ${{ secrets.HICORE_API_KEY }}
+          HICORE_BASE_URL:   ${{ secrets.HICORE_BASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_BOT_TOKEN:   ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL:     ${{ secrets.SLACK_CHANNEL }}
+          # Tvinga rätt datum baserat på Stockholm-tid (inte UTC-datumet på runnern)
+          TZ: Europe/Stockholm
+        run: python report.py ${{ github.event.inputs.datum }}
+
+      - name: Spara rapport som artefakt (för felsökning)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vacker-rapport
+          path: out/*.png
+          retention-days: 14
