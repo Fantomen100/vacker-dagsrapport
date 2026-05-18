@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>VACKER — Daglig försäljningsrapport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #2b211c; --ink-soft: #5a4a40;
+    --gold: #a98a4a; --gold-soft: #c9b07a; --gold-line: #d8c89c;
+    --bg: #ffffff;
+    --green: #2f7a3a; --red: #b8453e;
+    --totalt-bg: #3a2c25;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink);
+    padding: 64px 80px; width: 960px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 400;
+    font-size: 72px; letter-spacing: 18px; text-align: center;
+    color: var(--ink); padding-left: 18px;
+  }
+  .title-rule { width: 60%; height: 1px; background: var(--gold-line); margin: 14px auto 22px; }
+  .subtitle {
+    font-family: 'Inter', sans-serif; font-weight: 500;
+    font-size: 13px; letter-spacing: 4px; text-align: center;
+    color: var(--gold); text-transform: uppercase;
+  }
+  .date {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 18px; text-align: center; color: var(--ink-soft); margin-top: 6px;
+  }
+  .header-stats {
+    display: flex; justify-content: space-around; align-items: center;
+    margin: 48px 0 36px; padding: 22px 16px;
+    border-top: 1px solid var(--gold-line);
+    border-bottom: 1px solid var(--gold-line);
+  }
+  .header-stat { text-align: center; font-size: 14px; color: var(--ink-soft); }
+  .header-stat .label { margin-right: 10px; }
+  .header-stat .value { font-weight: 700; color: var(--ink); font-size: 16px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 56px; }
+  .kpi-card {
+    border: 1.5px solid var(--gold-line); border-radius: 14px;
+    padding: 22px 16px 24px; text-align: center; background: var(--bg);
+  }
+  .kpi-label {
+    font-family: 'Inter', sans-serif; font-weight: 500;
+    font-size: 12px; letter-spacing: 3px; color: var(--gold); margin-bottom: 12px;
+  }
+  .kpi-value {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 44px; line-height: 1;
+  }
+  .kpi-value.pos     { color: var(--green); }
+  .kpi-value.neg     { color: var(--red); }
+  .kpi-value.zero    { color: var(--ink-soft); }
+
+  .stores-title {
+    text-align: center; font-family: 'Inter', sans-serif; font-weight: 500;
+    font-size: 12px; letter-spacing: 4px; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 18px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    font-family: 'Inter', sans-serif; font-weight: 600;
+    font-size: 12px; color: var(--ink-soft); text-align: right;
+    padding: 12px 8px; border-bottom: 1px solid var(--gold-line);
+  }
+  thead th:first-child { text-align: left; }
+  tbody td {
+    padding: 13px 8px; text-align: right; color: var(--ink);
+    border-bottom: 1px solid #f0e9d8;
+  }
+  tbody td:first-child { text-align: left; }
+  tbody tr:last-child td { border-bottom: 1px solid var(--gold-line); }
+  td.pos  { color: var(--green); font-weight: 600; }
+  td.neg  { color: var(--red);   font-weight: 600; }
+  td.zero { color: var(--ink);   font-weight: 600; }
+
+  tr.totalt td {
+    background: var(--totalt-bg); color: #f4ead0;
+    font-family: 'Inter', sans-serif; font-weight: 600;
+    font-size: 13px; letter-spacing: 2px;
+    padding: 16px 8px; border: none;
+  }
+  tr.totalt td:first-child { text-transform: uppercase; color: var(--gold-soft); }
+  tr.totalt td.pos { color: #b8e6c1 !important; }
+  tr.totalt td.neg { color: #f0b3ad !important; }
+
+  .quote {
+    text-align: center; font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 16px; color: var(--ink-soft);
+    margin: 56px 0 18px;
+  }
+  .footer-rule { width: 60%; height: 1px; background: var(--gold-line); margin: 0 auto 16px; }
+  .footer {
+    text-align: center; font-family: 'Inter', sans-serif;
+    font-size: 11px; letter-spacing: 2px; color: var(--gold);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+  <div class="title">VACKER</div>
+  <div class="title-rule"></div>
+  <div class="subtitle">Daglig försäljningsrapport</div>
+  <div class="date">{{ report_date }}</div>
+
+  <div class="header-stats">
+    <div class="header-stat"><span class="label">Oms. Brutto:</span> <span class="value">{{ brutto_kr }}</span></div>
+    <div class="header-stat"><span class="label">Oms. Netto:</span> <span class="value">{{ netto_kr }}</span></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">DAG</div>
+      <div class="kpi-value {{ pct_day_class }}">{{ pct_day }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">VECKA</div>
+      <div class="kpi-value {{ pct_week_class }}">{{ pct_week }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">MÅNAD</div>
+      <div class="kpi-value {{ pct_month_class }}">{{ pct_month }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">ÅR</div>
+      <div class="kpi-value {{ pct_year_class }}">{{ pct_year }}</div>
+    </div>
+  </div>
+
+  <div class="stores-title">{{ stores_title }}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Butik</th>
+        <th>Diff %</th>
+        <th>Försäljning</th>
+        <th>Diff kr</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stores %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td class="{{ s.diff_pct_class }}">{{ s.diff_pct }}</td>
+        <td>{{ s.forsaljning }}</td>
+        <td class="{{ s.diff_kr_class }}">{{ s.diff_kr }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="totalt">
+        <td>Totalt</td>
+        <td class="{{ total_pct_class }}">{{ total_pct }}</td>
+        <td>{{ total_forsaljning }}</td>
+        <td class="{{ total_diff_kr_class }}">{{ total_diff_kr }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="quote">{{ joke }}</div>
+  <div class="footer-rule"></div>
+  <div class="footer">Vacker Retail Intelligence · Automatisk rapport</div>
+
+</body>
+</html>
